@@ -1,0 +1,9 @@
+openenv-core[core]>=0.2.2
+openai>=1.35.0
+requests>=2.32.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+
+[dev]
+pytest>=8.0.0

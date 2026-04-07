@@ -24,4 +24,5 @@ where = ["."]
 
 # ✅ ADD THIS PART (VERY IMPORTANT)
 [project.scripts]
+server = "server.app:main"
 start = "server.app:main"
