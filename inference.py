@@ -2,23 +2,22 @@
 inference.py — Email Triage OpenEnv Baseline Inference Script
 
 BEFORE RUNNING, SET THESE:
-  HF_TOKEN       Your Hugging Face API key (huggingface.co/settings/tokens)
-  OPENAI_API_KEY Your OpenAI API key (alternative to HF_TOKEN)
-  API_BASE_URL   LLM endpoint  (default: https://router.huggingface.co/v1)
-  MODEL_NAME     Model name    (default: Qwen/Qwen2.5-72B-Instruct)
-  SERVER_URL     Env server    (default: http://localhost:8000)
-  TASK           easy | medium | hard | all  (default: all)
+  API_KEY        API key injected by validator (REQUIRED - do not bypass)
+  API_BASE_URL   LLM proxy endpoint injected by validator (REQUIRED - do not bypass)
+  MODEL_NAME     Model name (default: Qwen/Qwen2.5-72B-Instruct)
+  SERVER_URL     Env server (default: http://localhost:8000)
+  TASK           easy | medium | hard | all (default: all)
 
 Windows PowerShell:
-  $env:HF_TOKEN="hf_xxxxxxxxxxxx"
-  $env:SERVER_URL="https://nukathoti-email-triage-openenv.hf.space"
-  $env:TASK="all"
+  $env:API_KEY="your_key"
+  $env:API_BASE_URL="https://proxy.example.com/v1"
+  $env:SERVER_URL="https://nukathoti-email-triage-openenv1.hf.space"
   python inference.py
 
 Linux / Mac:
-  export HF_TOKEN="hf_xxxxxxxxxxxx"
-  export SERVER_URL="https://nukathoti-email-triage-openenv.hf.space"
-  export TASK="all"
+  export API_KEY="your_key"
+  export API_BASE_URL="https://proxy.example.com/v1"
+  export SERVER_URL="https://nukathoti-email-triage-openenv1.hf.space"
   python inference.py
 """
 
@@ -31,12 +30,12 @@ import requests
 from openai import OpenAI
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-# Reads from OPENAI_API_KEY first (spec requirement), falls back to HF_TOKEN
-API_KEY      = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
-SERVER_URL   = os.getenv("SERVER_URL",   "http://localhost:8000").rstrip("/")
-TASK         = os.getenv("TASK",         "all")
+# Use exactly API_KEY and API_BASE_URL as injected by the validator
+API_KEY      = os.environ.get("API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.environ.get("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
+SERVER_URL   = os.environ.get("SERVER_URL",   "http://localhost:8000").rstrip("/")
+TASK         = os.environ.get("TASK",         "all")
 BENCHMARK    = "email-triage-openenv"
 MAX_STEPS    = 15
 TEMPERATURE  = 0.1
@@ -179,14 +178,19 @@ def main() -> None:
     if not API_KEY:
         print(
             "[ERROR] No API key found!\n"
-            "  Set OPENAI_API_KEY or HF_TOKEN environment variable.\n"
-            "  Get your HF token: https://huggingface.co/settings/tokens",
+            "  Set API_KEY environment variable (injected by validator).\n"
+            "  Fallback: OPENAI_API_KEY or HF_TOKEN",
             flush=True,
         )
         sys.exit(1)
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    tasks  = ["easy", "medium", "hard"] if TASK == "all" else [TASK]
+    # Initialize OpenAI client with API_BASE_URL and API_KEY as injected
+    client = OpenAI(
+        base_url=API_BASE_URL,
+        api_key=API_KEY,
+    )
+
+    tasks = ["easy", "medium", "hard"] if TASK == "all" else [TASK]
 
     for task_name in tasks:
         run_task(task_name, client)
