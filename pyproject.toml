@@ -21,3 +21,7 @@ dev = ["pytest>=8.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+# ✅ ADD THIS PART (VERY IMPORTANT)
+[project.scripts]
+start = "server.app:main"
