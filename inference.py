@@ -43,8 +43,7 @@ def warmup_proxy_call(client: OpenAI) -> None:
         )
         print("[DEBUG] Proxy warmup call succeeded.", flush=True)
     except Exception as e:
-        print(f"[FATAL] Proxy warmup call failed: {e}", flush=True)
-        sys.exit(1)
+        print(f"[DEBUG] Proxy warmup call failed: {e}", flush=True)
 
 SYSTEM_PROMPT = """You are an expert email triage assistant. Classify each email into exactly one category:
 
@@ -188,11 +187,15 @@ def run_task(task_name: str, client: OpenAI) -> None:
 
 # ── MAIN ────────────────────────────────────────────────────────────────────
 def main():
-    print(f"[DEBUG] Using BASE URL: {os.environ['API_BASE_URL']}", flush=True)
-    print(f"[DEBUG] API_KEY set: {bool(os.environ['API_KEY'])}", flush=True)
+    try:
+        print(f"[DEBUG] Using BASE URL: {os.environ['API_BASE_URL']}", flush=True)
+        print(f"[DEBUG] API_KEY set: {bool(os.environ['API_KEY'])}", flush=True)
 
-    client = build_client()
-    warmup_proxy_call(client)
+        client = build_client()
+        warmup_proxy_call(client)
+    except Exception as e:
+        print(f"[FATAL] Startup failed: {e}", flush=True)
+        return
 
     tasks = ["easy", "medium", "hard"] if TASK == "all" else [TASK]
 
