@@ -18,7 +18,7 @@ TASK         = os.getenv("TASK", "all")
 BENCHMARK    = "email-triage-openenv"
 MAX_STEPS    = 15
 TEMPERATURE  = 0.1
-MIN_SCORE_EPS = 1e-6
+MIN_SCORE_EPS = 1e-3
 
 
 def build_client() -> OpenAI:
@@ -72,7 +72,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
         f"[END] success={str(success).lower()} steps={steps} "
-        f"score={score:.3f} rewards={rewards_str}",
+        f"score={score:.6f} rewards={rewards_str}",
         flush=True,
     )
 
