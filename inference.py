@@ -7,8 +7,18 @@ import requests
 from openai import OpenAI
 
 # ── ✅ STRICT OpenEnv config (NO fallback allowed) ─────────────────────────────
-API_KEY = os.environ["API_KEY"]
-API_BASE_URL = os.environ["API_BASE_URL"]
+# CRITICAL: These MUST come from the validator's injected environment
+try:
+    API_KEY = os.environ["API_KEY"]
+    API_BASE_URL = os.environ["API_BASE_URL"]
+except KeyError as e:
+    print(f"[FATAL] Missing required environment variable: {e}", flush=True)
+    sys.exit(1)
+
+# Verify they are not empty
+if not API_KEY or not API_BASE_URL:
+    print("[FATAL] API_KEY or API_BASE_URL is empty. Cannot proceed.", flush=True)
+    sys.exit(1)
 
 MODEL_NAME   = os.getenv("MODEL_NAME", "gpt-4o-mini")
 SERVER_URL   = os.getenv("SERVER_URL", "http://localhost:8000").rstrip("/")
@@ -153,11 +163,14 @@ def run_task(task_name: str, client: OpenAI) -> None:
 
 # ── MAIN ────────────────────────────────────────────────────────────────────
 def main():
-    print("Using BASE URL:", API_BASE_URL, flush=True)
+    print(f"[DEBUG] Using BASE URL: {API_BASE_URL}", flush=True)
+    print(f"[DEBUG] API_KEY set: {bool(API_KEY)}", flush=True)
 
+    # CRITICAL: Initialize client with ONLY the injected credentials
     client = OpenAI(
         base_url=API_BASE_URL,
-        api_key=API_KEY
+        api_key=API_KEY,
+        http_client=None  # Use default HTTP client
     )
 
     tasks = ["easy", "medium", "hard"] if TASK == "all" else [TASK]
