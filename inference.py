@@ -18,6 +18,7 @@ TASK         = os.getenv("TASK", "all")
 BENCHMARK    = "email-triage-openenv"
 MAX_STEPS    = 15
 TEMPERATURE  = 0.1
+MIN_SCORE_EPS = 1e-6
 
 
 def build_client() -> OpenAI:
@@ -42,8 +43,8 @@ def warmup_proxy_call(client: OpenAI) -> None:
         )
         print("[DEBUG] Proxy warmup call succeeded.", flush=True)
     except Exception as e:
-        # Non-fatal for local runs, but still visible in logs.
-        print(f"[DEBUG] Proxy warmup call failed: {e}", flush=True)
+        print(f"[FATAL] Proxy warmup call failed: {e}", flush=True)
+        sys.exit(1)
 
 SYSTEM_PROMPT = """You are an expert email triage assistant. Classify each email into exactly one category:
 
@@ -75,6 +76,11 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
         f"score={score:.3f} rewards={rewards_str}",
         flush=True,
     )
+
+
+def strict_open_interval_score(value: float) -> float:
+    """Clamp score to strict (0, 1) interval required by validator."""
+    return min(max(value, MIN_SCORE_EPS), 1.0 - MIN_SCORE_EPS)
 
 
 # ── ENV API ─────────────────────────────────────────────────────────────────
@@ -167,12 +173,13 @@ def run_task(task_name: str, client: OpenAI) -> None:
 
         total = obs.get("total_emails") or max(steps_taken, 1)
         correct = sum(1 for r in rewards if r >= 1.0)
-        score = min(max(correct / total, 0.0), 1.0)
+        score = strict_open_interval_score(correct / total)
         success = score >= 0.5
 
     except Exception as e:
         print(f"[DEBUG] Episode error: {e}", flush=True)
-        score = sum(rewards) / max(len(rewards), 1) if rewards else 0.0
+        raw_score = sum(rewards) / max(len(rewards), 1) if rewards else 0.0
+        score = strict_open_interval_score(raw_score)
         success = False
 
     finally:
