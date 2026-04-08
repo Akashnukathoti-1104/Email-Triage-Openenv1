@@ -8,16 +8,8 @@ from openai import OpenAI
 
 # ── ✅ STRICT OpenEnv config (NO fallback allowed) ─────────────────────────────
 # CRITICAL: These MUST come from the validator's injected environment
-try:
-    API_KEY = os.environ["API_KEY"]
-    API_BASE_URL = os.environ["API_BASE_URL"]
-except KeyError as e:
-    print(f"[FATAL] Missing required environment variable: {e}", flush=True)
-    sys.exit(1)
-
-# Verify they are not empty
-if not API_KEY or not API_BASE_URL:
-    print("[FATAL] API_KEY or API_BASE_URL is empty. Cannot proceed.", flush=True)
+if not os.environ.get("API_KEY") or not os.environ.get("API_BASE_URL"):
+    print("[FATAL] Missing API_KEY or API_BASE_URL in environment.", flush=True)
     sys.exit(1)
 
 MODEL_NAME   = os.getenv("MODEL_NAME", "gpt-4o-mini")
@@ -26,6 +18,32 @@ TASK         = os.getenv("TASK", "all")
 BENCHMARK    = "email-triage-openenv"
 MAX_STEPS    = 15
 TEMPERATURE  = 0.1
+
+
+def build_client() -> OpenAI:
+    # Keep this exact initialization pattern for validator compatibility.
+    return OpenAI(
+        base_url=os.environ["API_BASE_URL"],
+        api_key=os.environ["API_KEY"],
+    )
+
+
+def warmup_proxy_call(client: OpenAI) -> None:
+    """Force a lightweight call through the injected LiteLLM proxy."""
+    try:
+        client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "Return exactly: ok"},
+                {"role": "user", "content": "ok"},
+            ],
+            temperature=0,
+            max_tokens=2,
+        )
+        print("[DEBUG] Proxy warmup call succeeded.", flush=True)
+    except Exception as e:
+        # Non-fatal for local runs, but still visible in logs.
+        print(f"[DEBUG] Proxy warmup call failed: {e}", flush=True)
 
 SYSTEM_PROMPT = """You are an expert email triage assistant. Classify each email into exactly one category:
 
@@ -163,15 +181,11 @@ def run_task(task_name: str, client: OpenAI) -> None:
 
 # ── MAIN ────────────────────────────────────────────────────────────────────
 def main():
-    print(f"[DEBUG] Using BASE URL: {API_BASE_URL}", flush=True)
-    print(f"[DEBUG] API_KEY set: {bool(API_KEY)}", flush=True)
+    print(f"[DEBUG] Using BASE URL: {os.environ['API_BASE_URL']}", flush=True)
+    print(f"[DEBUG] API_KEY set: {bool(os.environ['API_KEY'])}", flush=True)
 
-    # CRITICAL: Initialize client with ONLY the injected credentials
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=API_KEY,
-        http_client=None  # Use default HTTP client
-    )
+    client = build_client()
+    warmup_proxy_call(client)
 
     tasks = ["easy", "medium", "hard"] if TASK == "all" else [TASK]
 
